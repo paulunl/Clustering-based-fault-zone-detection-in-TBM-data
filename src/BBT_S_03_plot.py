@@ -113,6 +113,6 @@ def plot(df, FROM, TO, WINDOW):
         plt.tight_layout()
         plt.savefig(fr'03_plots\BBT_S_{FROM}_{TO}.png', dpi=600)
         
-plot(df, 20000, 20500, 25)
+plot(df, 20000, 20500, 30)
 
 

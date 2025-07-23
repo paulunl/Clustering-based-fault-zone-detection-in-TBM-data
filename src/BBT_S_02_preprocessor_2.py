@@ -82,8 +82,18 @@ def preprocessor():
     # check NaNs
     nan_counts = df.isna().sum()
     nan_counts_ws = df_ws.isna().sum()
+    
+    # Calculate non-NaNs by subtracting from total row count
+    non_nan_counts = len(df) - nan_counts
+    
+    # Combine both into a new DataFrame
+    nan_summary = pd.DataFrame({
+        'NaN_count': nan_counts,
+        'Non-NaN_count': non_nan_counts
+    })
 
-    # set NaNs to 99
+
+    # set NaNs to xx
     df[['Advance Force (mono/double shield) [kN]',
         'Advance thrust force [kN]',
         'Thrust Force Single Shield Mode [kN]',
@@ -150,28 +160,28 @@ def preprocessor():
     ###########################################################################
     # outlier filtering
     # features to be filtered
-    mahal_features = ['Speed [mm/min]',
-                      'Pressure A [bar]',
-                      'Pressure B [bar]',
-                      'Pressure C [bar]',
-                      'Pressure D [bar]',
-                      'CH Penetration [mm/rot]',
-                      'CH Rotation [rpm]',
-                      'CH Torque [MNm]',
-                      'Thrust Force [kN]']
+    # mahal_features = ['Speed [mm/min]',
+    #                   'Pressure A [bar]',
+    #                   'Pressure B [bar]',
+    #                   'Pressure C [bar]',
+    #                   'Pressure D [bar]',
+    #                   'CH Penetration [mm/rot]',
+    #                   'CH Rotation [rpm]',
+    #                   'CH Torque [MNm]',
+    #                   'Thrust Force [kN]']
     
-    # filter outliers with mahal distribution, for every datapoint with respect to the previous 100,
-    # deleting the ones that lye out of the P85 percentile
-    df_mahal = utils.filter_outliers(df_median, mahal_features, 85, 100)
+    # # filter outliers with mahal distribution, for every datapoint with respect to the previous 100,
+    # # deleting the ones that lye out of the P85 percentile
+    # df_mahal = utils.filter_outliers(df_median, mahal_features, 85, 100)
     
-    df_mahal = df_mahal.sort_values(by=['Tunnel Distance [m]'])
-    df_mahal.index = np.arange(len(df_mahal))
-    print('# datapoints after mahal distr.', df_mahal['Tunnel Distance [m]'].count())
+    # df_mahal = df_mahal.sort_values(by=['Tunnel Distance [m]'])
+    # df_mahal.index = np.arange(len(df_mahal))
+    # print('# datapoints after mahal distr.', df_mahal['Tunnel Distance [m]'].count())
     
-    fig, (ax) = plt.subplots()
-    ax.hist(df, 50, fc='darkgray', histtype='barstacked', ec='black')
-    ax.hist(df_mahal, 50, fc='orange', histtype='barstacked', ec='black')
-    ax.set_xlim(0, len(df))
+    # fig, (ax) = plt.subplots()
+    # ax.hist(df, 50, fc='darkgray', histtype='barstacked', ec='black')
+    # ax.hist(df_mahal, 50, fc='orange', histtype='barstacked', ec='black')
+    # ax.set_xlim(0, len(df))
     
     ###########################################################################
     # linear interpolation
@@ -238,13 +248,89 @@ def preprocessor():
     df['torque ratio'], df['theoretical torque [MNm]'] = comp.t_ratio(
         tot_cutters, r_cutter, M0, tot_adv_force, penetration,
         real_torque, cutter_positions)    
+    
+    ###########################################################################
+    # add class labels
+    file = (r'01_raw_data\3 Geo Daten_EKS\Tunnelbänder_Vorabzug\20250722_Geo-Daten.xlsx')
+            
+    # Define clean column names based on the provided image
+    columns = [
+        "Homogen Area",
+        "Start [km]",
+        "End [km]",
+        "Length [m]",
+        "Gebirgsart",
+        "OB Aufnahme #",
+        "OB Aufnahme km",
+        "RMR",
+        "UCS [MPa] min",
+        "UCS [MPa] max",
+        "RQD [%]",
+        "GSI",
+        "TCR GVT min",
+        "TCR GVT max",
+        "Dip/Dir [°/°]",
+        "Spacing [mm]",
+        "Class"
+    ]
+    
+    # Define the exact columns to keep
+    columns_to_keep = [
+        "OB Aufnahme km",      
+        "RMR",
+        "UCS [MPa] min",     
+        "UCS [MPa] max", 
+        "TCR GVT min",
+        "TCR GVT max",         
+        "Class"
+    ]
+
+    # Read the data, skip header rows, assign column names
+    df_labels = pd.read_excel(file, sheet_name='CE-EKS_Geo-Daten', skiprows=3, header=None)
+    df_labels.columns = columns
+    
+    # Keep only the selected columns
+    df_labels = df_labels[columns_to_keep]
+
+    # Drop fully empty rows
+    df_labels.dropna(how='all', inplace=True)
+    
+    # set common index for merge
+    df['Tunnel Distance [m]'] = df['Tunnel Distance [m]'].round(1)
+    df.set_index('Tunnel Distance [m]', inplace=True, drop=False)
+    df_labels.set_index("OB Aufnahme km", inplace=True)
+        
+    # Define mapping from Roman numerals to integers
+    class_map = {
+        'I': 1,
+        'II': 2,
+        'III': 3,
+        'IV': 4,
+        'V': 5
+    }
+    
+    # Apply the mapping to the 'Class' column
+    df_labels['Class'] = df_labels['Class'].map(class_map)
+    
+    # To replace all instances of a dash ('-') with NaN (missing values)
+    df_labels.replace('-', np.nan, inplace=True)
+    
+    # merge dfs
+    df = pd.merge(df, df_labels,
+                  left_index=True, right_index=True, how='outer')
+    # fill NaNs with 
+    df['RMR'].fillna(method='bfill', inplace=True)
+    df['UCS [MPa] min'].fillna(method='bfill', inplace=True)
+    df['UCS [MPa] max'].fillna(method='bfill', inplace=True)
+    df['TCR GVT min'].fillna(method='bfill', inplace=True)
+    df['TCR GVT max'].fillna(method='bfill', inplace=True)
+    df['Class'].fillna(method='bfill', inplace=True)
 
     ###########################################################################
     #save df
-    df = df.reset_index(drop=True)
-    df = df.round({'Tunnel Distance [m]':3})
+    # df = df.reset_index(drop=True)
     df = df.dropna()
-    df.to_parquet(r'02_processed_data\02_TBMdata_BBT_S_preprocessed.gzip', index=False)
+    df.to_parquet(r'02_processed_data\02_TBMdata_BBT_S_preprocessed_wlabels.gzip', index=False)
 
     ###########################################################################
     return df

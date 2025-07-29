@@ -20,6 +20,7 @@ from tqdm import tqdm
 class utilities:
 
     def __init__(self):
+        self.previous_advance_force_col = None
         pass
     
     
@@ -79,7 +80,6 @@ class utilities:
 
     def concat_tables(self, folder, drop_standstills=True,
                       check_for_miss_vals=True):
-
         filenames = []
         for file in listdir(folder):
             if file.split('.')[1] == 'csv':
@@ -121,23 +121,40 @@ class utilities:
             # df['Thrust Force [kN]'] = df['Thrust Force [kN]'].fillna(0)
             # df['CH Rotation [rpm]'] = df['CH Rotation [rpm]'].fillna(0)
             # df['CH Penetration [mm/rot]'] = df['CH Penetration [mm/rot]'].fillna(0)
-
+                    
             if drop_standstills is True:
-                # Try both possible labels for advance force
+                # Try all possible labels for advance force
                 advance_force_options = [
                     ('Advance Force (mono/double shield)', 'kN'),
                     ('Advance thrust force', 'kN'),
-                    ('thrust force single shield mode', 'kN'), # Optional, if that label exists
-                ]
+                    ('thrust force single shield mode', 'kN'),]
+                
+                # Find all columns from options present in df
+                matched_cols = [col for col in advance_force_options if col in df.columns]
+                
+                if not matched_cols:
+                    raise KeyError("Advance force columns not found in DataFrame.")
+                
+                if len(matched_cols) > 1:
+                    print(f"Warning: Multiple advance force columns found: {matched_cols}.")
+                    # You can decide to pick the first:
+                    advance_force_col = matched_cols[0]
+                    print(f"Using {advance_force_col} by default.")
+                else:
+                    advance_force_col = matched_cols[0]
+                
+                if advance_force_col != self.previous_advance_force_col:
+                    print(f"Advance force column changed from {self.previous_advance_force_col} to: {advance_force_col}")
+                    self.previous_advance_force_col = advance_force_col
+                    
+                # advance_force_col = None
+                # for col in advance_force_options:
+                #     if col in df.columns:
+                #         advance_force_col = col
+                #         break
             
-                advance_force_col = None
-                for col in advance_force_options:
-                    if col in df.columns:
-                        advance_force_col = col
-                        break
-            
-                if advance_force_col is None:
-                    raise KeyError("Advance force column not found in DataFrame.")
+                # if advance_force_col is None:
+                #     raise KeyError("Advance force column not found in DataFrame.")
             
                 idx_standstill = df.loc[
                     (df[('Main drive torque', 'MNm')] <= 0)

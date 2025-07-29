@@ -15,14 +15,14 @@ def concat():
     # import raw data and concat individual excel files to big parquet file/csv
     folder = r'01_raw_data\2 TBM Daten_EKS\S-1054_Rohdaten\all'
     
-    drop_standstills = False  # change to true if standstills should be dropped
+    drop_standstills = True  # change to true if standstills should be dropped
     check_for_miss_vals = False  # generates plot of missing values in dataset
     
     df = utils.concat_tables(folder, drop_standstills=drop_standstills,
                              check_for_miss_vals=check_for_miss_vals)
     
-    print('\ndataset start - stop:', df['Station 1st Ref. point (projection on tunnel axis) m'].min(), '-', df['Station 1st Ref. point (projection on tunnel axis) m'].max())
-    print('dataset end of Time:', df['Timestamp'].max())
+    # print('\ndataset start - stop:', df['Station 1st Ref. point (projection on tunnel axis) m'].min(), '-', df['Station 1st Ref. point (projection on tunnel axis) m'].max())
+    # print('dataset end of Time:', df['Timestamp'].max())
     
     
     if drop_standstills is False:

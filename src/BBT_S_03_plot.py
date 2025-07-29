@@ -152,5 +152,5 @@ def plot(df, FROM, TO, WINDOW):
         plt.tight_layout()
         plt.savefig(fr'03_plots\BBT_S_{FROM}_{TO}.png', dpi=600)
         
-plot(df, 15000, 15300, 25)
+plot(df, 22000, 24000, 35)
 
